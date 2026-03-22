@@ -23,13 +23,17 @@ pub enum BasicAST<'a> {
 }
 
 pub struct Block<'a> {
+    // the usize would be the offset in the memory of the variable
     local_vars: HashMap<&'a str, usize>,
+    // the usize would be the index of the function in the body array,
+    local_funcs: HashMap<&'a str, usize>,
     body: Vec<BasicAST<'a>>,
 }
 
-fn parse_block<'a>(tokens: &'a [&'a str]) -> (Block<'a>, usize) {
+fn parse_block<'a>(tokens: &'a [&'a str]) -> Result<(Block<'a>, usize), ()> {
     let mut block = Block {
         local_vars: HashMap::new(),
+        local_funcs: HashMap::new(),
         body: Vec::new(),
     };
 
@@ -47,7 +51,7 @@ fn parse_block<'a>(tokens: &'a [&'a str]) -> (Block<'a>, usize) {
                 break;
             } else if tokens[i] == "{" {
                 i += 1;
-                let (child, size) = parse_block(&tokens[i..]);
+                let (child, size) = parse_block(&tokens[i..])?;
 
                 child_block = Some(child);
                 i += size;
@@ -69,7 +73,13 @@ fn parse_block<'a>(tokens: &'a [&'a str]) -> (Block<'a>, usize) {
         } else if current_statement[0] == "function" && child_block.is_some() {
             let function_name = current_statement[1];
             let params = current_statement[2..].to_vec();
-            block.body.push(BasicAST::Function(function_name, params, child_block.unwrap()));
+
+            block.local_funcs.insert(function_name, block.body.len());
+            block.body.push(BasicAST::Function(
+                function_name,
+                params,
+                child_block.unwrap(),
+            ));
         } else if current_statement[0].is_identifier() {
             if current_statement[1] == "=" {
                 if block.local_vars.get(current_statement[0]).is_some() {
@@ -87,11 +97,22 @@ fn parse_block<'a>(tokens: &'a [&'a str]) -> (Block<'a>, usize) {
                 block.body.push(BasicAST::Increment(current_statement[0]));
             } else if current_statement[1] == "-" && current_statement[2] == "-" {
                 block.body.push(BasicAST::Decrement(current_statement[0]));
+            } else if block.local_funcs.get(current_statement[0]).is_some() {
+                let function_name = current_statement[0];
+                let params = current_statement[1..].to_vec();
+
+                block
+                    .body
+                    .push(BasicAST::CallFunction(function_name, params));
+            } else {
+                return Err(())
             }
+        } else {
+            return Err(())
         }
     }
 
-    (block, i)
+    Ok((block, i))
 }
 
 // Oh god the lifetimes are spreading everywhere
