@@ -3,6 +3,8 @@ use std::env;
 #[cfg(test)]
 mod tests;
 
+mod basic_ast;
+
 struct CommandLineOptions {
     input_file: String,
     output_file: String,
