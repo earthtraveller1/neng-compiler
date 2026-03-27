@@ -45,6 +45,11 @@ fn parse_block<'a>(tokens: &'a [&'a str]) -> Result<(Block<'a>, usize), ()> {
         let statement_start = i;
         let mut child_block = Option::None;
 
+        // This would mark the end of the block
+        if tokens[i] == "}" {
+            break;
+        }
+
         loop {
             if tokens[i] == ";" {
                 i += 1;
@@ -105,10 +110,10 @@ fn parse_block<'a>(tokens: &'a [&'a str]) -> Result<(Block<'a>, usize), ()> {
                     .body
                     .push(BasicAST::CallFunction(function_name, params));
             } else {
-                return Err(())
+                return Err(());
             }
         } else {
-            return Err(())
+            return Err(());
         }
     }
 
