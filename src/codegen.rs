@@ -11,6 +11,11 @@ pub trait CodeGen {
 
     fn assignment_statement(&mut self, destination_address: u64, value: u8);
     fn copy_statement(&mut self, destination: u64, source: u64);
+
+    fn add(&mut self, destination: u64, value: u8);
+    fn add_var(&mut self, destination: u64, source: u64);
+    fn subtract(&mut self, destination: u64, value: u8);
+    fn subtract_var(&mut self, destination: u64, source: u64);
 }
 
 impl CodeGen for Vec<Instruction> {
@@ -102,5 +107,105 @@ impl CodeGen for Vec<Instruction> {
 
         // Of course we will have to move back to 0 in the end no matter what
         self.go_to_zero_from_addr(temp);
+    }
+
+    fn add(&mut self, destination: u64, value: u8) {
+        self.go_to_addr(destination);
+
+        for _ in 0..value {
+            self.push(Instruction::Increment);
+        }
+
+        self.go_to_zero_from_addr(destination);
+    }
+
+    fn add_var(&mut self, destination: u64, source: u64) {
+        let temp1 = source + 1;
+        let temp2 = destination + 1;
+
+        self.set_to_zero(temp1);
+        self.set_to_zero(temp2);
+
+        // Move and duplicate the source value
+        self.go_to_addr(source);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(source, temp1);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(temp1, temp2);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(temp2, source);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        // Add temp2 to the destination (since temp1 is closer to source 
+        // and we will use that to restore the source value)
+        self.go_to_addr_from_addr(source, temp2);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(temp2, destination);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(destination, temp2);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        // And finally use temp1 to restore the source value in its place
+        self.go_to_addr_from_addr(temp2, temp1);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(temp1, source);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(source, temp1);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        self.go_to_zero_from_addr(temp1);
+    }
+
+    fn subtract(&mut self, destination: u64, value: u8) {
+        self.go_to_addr(destination);
+
+        for _ in 0..value {
+            self.push(Instruction::Decrement);
+        }
+
+        self.go_to_zero_from_addr(destination);
+    }
+
+    fn subtract_var(&mut self, destination: u64, source: u64) {
+        let temp1 = source + 1;
+        let temp2 = destination + 1;
+
+        self.set_to_zero(temp1);
+        self.set_to_zero(temp2);
+
+        // Move and duplicate the source value
+        self.go_to_addr(source);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(source, temp1);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(temp1, temp2);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(temp2, source);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        // Subtract temp2 from the destination (since temp1 is closer to source 
+        // and we will use that to restore the source value)
+        self.go_to_addr_from_addr(source, temp2);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(temp2, destination);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(destination, temp2);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        // And finally use temp1 to restore the source value in its place
+        self.go_to_addr_from_addr(temp2, temp1);
+        self.push(Instruction::JumpForwardIf0);
+        self.push(Instruction::Decrement);
+        self.go_to_addr_from_addr(temp1, source);
+        self.push(Instruction::Increment);
+        self.go_to_addr_from_addr(source, temp1);
+        self.push(Instruction::JumpBackwardIfNot0);
+
+        self.go_to_zero_from_addr(temp1);
     }
 }
