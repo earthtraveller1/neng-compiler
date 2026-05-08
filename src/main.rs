@@ -4,6 +4,7 @@ use std::env;
 mod tests;
 
 mod basic_ast;
+mod assembler;
 
 struct CommandLineOptions {
     input_file: String,
