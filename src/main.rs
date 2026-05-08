@@ -5,6 +5,7 @@ mod tests;
 
 mod basic_ast;
 mod assembler;
+mod codegen;
 
 struct CommandLineOptions {
     input_file: String,
