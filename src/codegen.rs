@@ -16,6 +16,9 @@ pub trait CodeGen {
     fn add_var(&mut self, destination: u64, source: u64);
     fn subtract(&mut self, destination: u64, value: u8);
     fn subtract_var(&mut self, destination: u64, source: u64);
+
+    fn begin_while_loop(&mut self, variable: u64);
+    fn end_while_loop(&mut self, variable: u64);
 }
 
 impl CodeGen for Vec<Instruction> {
@@ -207,5 +210,19 @@ impl CodeGen for Vec<Instruction> {
         self.push(Instruction::JumpBackwardIfNot0);
 
         self.go_to_zero_from_addr(temp1);
+    }
+
+    fn begin_while_loop(&mut self, variable: u64) {
+        self.go_to_addr(variable);
+        self.push(Instruction::JumpForwardIf0);
+        self.go_to_zero_from_addr(variable);
+    }
+
+    fn end_while_loop(&mut self, variable: u64) {
+        self.go_to_addr(variable);
+        // Here we don't need to go back to 0 since when we loop around to the 
+        // start of the loop it will end up at 0 automatically
+        self.push(Instruction::JumpBackwardIfNot0);
+        self.go_to_zero_from_addr(variable);
     }
 }
