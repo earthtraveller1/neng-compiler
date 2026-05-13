@@ -19,6 +19,9 @@ pub trait CodeGen {
 
     fn begin_while_loop(&mut self, variable: u64);
     fn end_while_loop(&mut self, variable: u64);
+
+    fn begin_if(&mut self, variable: u64);
+    fn end_if(&mut self, variable: u64);
 }
 
 impl CodeGen for Vec<Instruction> {
@@ -224,5 +227,19 @@ impl CodeGen for Vec<Instruction> {
         // start of the loop it will end up at 0 automatically
         self.push(Instruction::JumpBackwardIfNot0);
         self.go_to_zero_from_addr(variable);
+    }
+
+    fn begin_if(&mut self, variable: u64) {
+        self.go_to_addr(variable);
+        self.push(Instruction::JumpForwardIf0);
+        self.go_to_zero_from_addr(variable);
+    }
+
+    fn end_if(&mut self, variable: u64) {
+        self.set_to_zero(variable + 1);
+        self.go_to_addr(variable + 1);
+
+        self.push(Instruction::JumpBackwardIfNot0);
+        self.go_to_zero_from_addr(variable + 1);
     }
 }
