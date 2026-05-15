@@ -22,6 +22,9 @@ pub trait CodeGen {
 
     fn begin_if(&mut self, variable: u64);
     fn end_if(&mut self, variable: u64);
+
+    fn print(&mut self, variable: u64);
+    fn read_into(&mut self, variable: u64);
 }
 
 impl CodeGen for Vec<Instruction> {
@@ -241,5 +244,17 @@ impl CodeGen for Vec<Instruction> {
 
         self.push(Instruction::JumpBackwardIfNot0);
         self.go_to_zero_from_addr(variable + 1);
+    }
+
+    fn print(&mut self, variable: u64) {
+        self.go_to_addr(variable);
+        self.push(Instruction::Print);
+        self.go_to_zero_from_addr(variable);
+    }
+
+    fn read_into(&mut self, variable: u64) {
+        self.go_to_addr(variable);
+        self.push(Instruction::Read);
+        self.go_to_zero_from_addr(variable);
     }
 }
