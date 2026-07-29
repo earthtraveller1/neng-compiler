@@ -1,123 +1,109 @@
+use super::PullStatementTrait;
 use std::collections::HashMap;
 
-trait IsIdentifier {
-    fn is_identifier(&self) -> bool;
+enum Statement {
+    Assign {
+        addr: u64,
+        value: u8,
+    },
+    Copy {
+        src: u64,
+        dst: u64,
+    },
+    Add {
+        addr: u64,
+        value: u8,
+    },
+    Subtract {
+        addr: u64,
+        value: u8,
+    },
+
+    Print {
+        addr: u64,
+    },
+    Read {
+        addr: u64,
+    },
+
+    If {
+        target_addr: u64,
+        body: Vec<Statement>,
+    },
+    While {
+        target_addr: u64,
+        body: Vec<Statement>,
+    },
 }
 
-impl IsIdentifier for str {
-    fn is_identifier(&self) -> bool {
-        self.contains(|c: char| c.is_alphabetic())
+struct Stackframe<'a> {
+    variables: HashMap<&'a str, u64>,
+    base_addr: u64,
+    top_addr: u64,
+}
+
+trait Stack<'a> {
+    fn push_new_frame(&mut self);
+    fn find_variable_addr(&self, name: &str) -> Option<u64>;
+    fn find_or_create_var_addr(&mut self, name: &'a str) -> u64;
+}
+
+impl<'a> Stack<'a> for Vec<Stackframe<'a>> {
+    fn push_new_frame(&mut self) {
+        let base_addr = if let Some(previous_frame) = self.last() {
+            previous_frame.top_addr + 2
+        } else {
+            0
+        };
+
+        self.push(Stackframe {
+            variables: HashMap::new(),
+            base_addr,
+            top_addr: base_addr,
+        })
+    }
+
+    fn find_variable_addr(&self, name: &str) -> Option<u64> {
+        for frame in self.iter().rev() {
+            if frame.variables.contains_key(name) {
+                return frame.variables.get(name).map(|x| *x);
+            }
+        }
+
+        None
+    }
+
+    fn find_or_create_var_addr(&mut self, name: &'a str) -> u64 {
+        if let Some(addr) = self.find_variable_addr(name) {
+            addr
+        } else {
+            let frame = self.last_mut().unwrap();
+            frame.variables.insert(name, frame.top_addr + 2);
+            frame.top_addr + 2
+        }
     }
 }
 
-// For now, I'm only going to implement the ones that are trivial to implement
-// because i am lazy lol
-pub enum BasicAST<'a> {
-    Init(&'a str, u8),
-    Set(&'a str, u8),
-    Increment(&'a str),
-    Decrement(&'a str),
-    For(&'a str, Block<'a>),
-    Function(&'a str, Vec<&'a str>, Block<'a>),
-    CallFunction(&'a str, Vec<&'a str>),
-}
+fn parse_code(tokens: &[&str]) -> Vec<Statement> {
+    let mut start_token = 0;
+    let mut variables = HashMap::new();
 
-pub struct Block<'a> {
-    // the usize would be the offset in the memory of the variable
-    local_vars: HashMap<&'a str, usize>,
-    // the usize would be the index of the function in the body array,
-    local_funcs: HashMap<&'a str, usize>,
-    body: Vec<BasicAST<'a>>,
-}
+    let mut statements = Vec::new();
 
-fn parse_block<'a>(tokens: &'a [&'a str]) -> Result<(Block<'a>, usize), ()> {
-    let mut block = Block {
-        local_vars: HashMap::new(),
-        local_funcs: HashMap::new(),
-        body: Vec::new(),
-    };
+    loop {
+        let statement = &tokens[start_token..].pull_statement();
+        statements.push(parse_statement(statement, &mut variables));
 
-    let mut current_var_offset = 0;
-
-    let mut i = 0;
-    while i < tokens.len() {
-        let mut current_statement = &tokens[i..i];
-        let statement_start = i;
-        let mut child_block = Option::None;
-
-        // This would mark the end of the block
-        if tokens[i] == "}" {
+        if start_token >= tokens.len() {
             break;
         }
 
-        loop {
-            if tokens[i] == ";" {
-                i += 1;
-                break;
-            } else if tokens[i] == "{" {
-                i += 1;
-                let (child, size) = parse_block(&tokens[i..])?;
-
-                child_block = Some(child);
-                i += size;
-                break;
-            } else {
-                current_statement = &tokens[statement_start..i];
-                i += 1;
-            }
-        }
-
-        if current_statement.is_empty() {
-            continue;
-        }
-
-        if current_statement[0] == "for" && child_block.is_some() {
-            block
-                .body
-                .push(BasicAST::For(current_statement[0], child_block.unwrap()));
-        } else if current_statement[0] == "function" && child_block.is_some() {
-            let function_name = current_statement[1];
-            let params = current_statement[2..].to_vec();
-
-            block.local_funcs.insert(function_name, block.body.len());
-            block.body.push(BasicAST::Function(
-                function_name,
-                params,
-                child_block.unwrap(),
-            ));
-        } else if current_statement[0].is_identifier() {
-            if current_statement[1] == "=" {
-                if block.local_vars.get(current_statement[0]).is_some() {
-                    block.body.push(BasicAST::Set(
-                        current_statement[0],
-                        current_statement[2].parse().unwrap(),
-                    ))
-                } else {
-                    block
-                        .local_vars
-                        .insert(current_statement[0], current_var_offset);
-                    current_var_offset += 1;
-                }
-            } else if current_statement[1] == "+" && current_statement[2] == "+" {
-                block.body.push(BasicAST::Increment(current_statement[0]));
-            } else if current_statement[1] == "-" && current_statement[2] == "-" {
-                block.body.push(BasicAST::Decrement(current_statement[0]));
-            } else if block.local_funcs.get(current_statement[0]).is_some() {
-                let function_name = current_statement[0];
-                let params = current_statement[1..].to_vec();
-
-                block
-                    .body
-                    .push(BasicAST::CallFunction(function_name, params));
-            } else {
-                return Err(());
-            }
-        } else {
-            return Err(());
-        }
+        start_token += statement.len() + 1;
     }
 
-    Ok((block, i))
+    statements
 }
 
-// Oh god the lifetimes are spreading everywhere
+fn parse_statement(tokens: &[&str], variables: &mut HashMap<&str, u64>) -> Statement {
+    todo!()
+}
