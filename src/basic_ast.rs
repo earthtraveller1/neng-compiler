@@ -13,18 +13,24 @@ enum Statement {
         addr: u64,
         value: u8,
     },
+    AddVar {
+        src: u64,
+        dst: u64,
+    },
     Subtract {
         addr: u64,
         value: u8,
     },
-
+    SubtractVar {
+        src: u64,
+        dst: u64,
+    },
     Print {
         addr: u64,
     },
     Read {
         addr: u64,
     },
-
     If {
         target_addr: u64,
         body: Vec<Statement>,
@@ -35,38 +41,16 @@ enum Statement {
     },
 }
 
-struct Stackframe<'a> {
+struct Stack<'a> {
     variables: HashMap<&'a str, u64>,
-    base_addr: u64,
     top_addr: u64,
 }
 
-trait Stack<'a> {
-    fn push_new_frame(&mut self);
-    fn find_variable_addr(&self, name: &str) -> Option<u64>;
-    fn find_or_create_var_addr(&mut self, name: &'a str) -> u64;
-}
 
-impl<'a> Stack<'a> for Vec<Stackframe<'a>> {
-    fn push_new_frame(&mut self) {
-        let base_addr = if let Some(previous_frame) = self.last() {
-            previous_frame.top_addr + 2
-        } else {
-            0
-        };
-
-        self.push(Stackframe {
-            variables: HashMap::new(),
-            base_addr,
-            top_addr: base_addr,
-        })
-    }
-
+impl<'a> Stack<'a> {
     fn find_variable_addr(&self, name: &str) -> Option<u64> {
-        for frame in self.iter().rev() {
-            if frame.variables.contains_key(name) {
-                return frame.variables.get(name).map(|x| *x);
-            }
+        if self.variables.contains_key(name) {
+            return self.variables.get(name).map(|x| *x);
         }
 
         None
@@ -76,9 +60,10 @@ impl<'a> Stack<'a> for Vec<Stackframe<'a>> {
         if let Some(addr) = self.find_variable_addr(name) {
             addr
         } else {
-            let frame = self.last_mut().unwrap();
-            frame.variables.insert(name, frame.top_addr + 2);
-            frame.top_addr + 2
+            self.variables.insert(name, self.top_addr + 2);
+            self.top_addr += 2; // Increment by 2s so that we leave a gap
+                                // for other purposes
+            self.top_addr
         }
     }
 }
@@ -105,7 +90,7 @@ fn pull_statement<'a>(tokens: &'a [&str]) -> Result<&'a [&'a str], &'static str>
     Ok(&tokens[..i])
 }
 
-fn parse_code<'a>(tokens: &'a [&'a str], stack: &mut Vec<Stackframe<'a>>) -> Result<Vec<Statement>, String> {
+fn parse_code<'a>(tokens: &'a [&'a str], stack: &mut Stack<'a>) -> Result<Vec<Statement>, String> {
     let mut start_token = 0;
     let mut statements = Vec::new();
 
@@ -134,16 +119,32 @@ fn is_number(string: &str) -> bool {
 
 fn parse_statement<'a>(
     tokens: &[&'a str],
-    stack: &mut Vec<Stackframe<'a>>,
+    stack: &mut Stack<'a>
 ) -> Result<Statement, String> {
     let first_token = *tokens.first().ok_or("Empty statements are not allowed.")?;
+    let second_token = *tokens.get(1).ok_or("Invalid statement")?;
+
     if first_token == "if" {
         todo!();
-    } else if first_token == "whble" {
+    } else if first_token == "while" {
         todo!();
-    }
+    } else if first_token == "print" {
+        let source_address = stack
+            .find_variable_addr(second_token)
+            .ok_or("Non-existent variable")?;
 
-    let second_token = *tokens.get(1).ok_or("Invalid statement")?;
+        return Ok(Statement::Print {
+            addr: source_address
+        })
+    } else if first_token == "read" {
+        let dest_address = stack
+            .find_variable_addr(second_token)
+            .ok_or("Non-existent variable")?;
+
+        return Ok(Statement::Print {
+            addr: dest_address
+        })
+    }
 
     if second_token == "=" {
         let source_operand = tokens.get(2).ok_or("Invalid statement")?;
