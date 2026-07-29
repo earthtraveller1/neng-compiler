@@ -1,6 +1,7 @@
 use std::{collections::HashMap, num::ParseIntError};
 
-enum Statement {
+#[derive(Debug)]
+pub enum Statement {
     Assign {
         addr: u64,
         value: u8,
@@ -41,13 +42,21 @@ enum Statement {
     },
 }
 
-struct Stack<'a> {
+#[derive(Debug)]
+pub struct Stack<'a> {
     variables: HashMap<&'a str, u64>,
     top_addr: u64,
 }
 
 
 impl<'a> Stack<'a> {
+    pub fn new() -> Stack<'a> {
+        Stack {
+            variables: HashMap::new(),
+            top_addr: 0,
+        }
+    }
+
     fn find_variable_addr(&self, name: &str) -> Option<u64> {
         if self.variables.contains_key(name) {
             return self.variables.get(name).map(|x| *x);
@@ -74,10 +83,6 @@ fn pull_statement<'a>(tokens: &'a [&str]) -> Result<&'a [&'a str], &'static str>
     let mut i = 0;
 
     while tokens[i] != ";" || open_braces != closing_braces {
-        if i >= tokens.len() {
-            return Err("Statement unconcluded");
-        }
-
         if tokens[i] == "{" {
             open_braces += 1;
         } else if tokens[i] == "}" {
@@ -85,12 +90,16 @@ fn pull_statement<'a>(tokens: &'a [&str]) -> Result<&'a [&'a str], &'static str>
         }
 
         i += 1;
+
+        if i >= tokens.len() {
+            return Err("Statement unconcluded");
+        }
     }
 
     Ok(&tokens[..i])
 }
 
-fn parse_code<'a>(tokens: &'a [&'a str], stack: &mut Stack<'a>) -> Result<Vec<Statement>, String> {
+pub fn parse_code<'a>(tokens: &'a [&'a str], stack: &mut Stack<'a>) -> Result<Vec<Statement>, String> {
     let mut start_token = 0;
     let mut statements = Vec::new();
 
@@ -123,6 +132,7 @@ fn parse_statement<'a>(
 ) -> Result<Statement, String> {
     let first_token = *tokens.first().ok_or("Empty statements are not allowed.")?;
     let second_token = *tokens.get(1).ok_or("Invalid statement")?;
+
 
     if first_token == "if" {
         todo!();
@@ -172,9 +182,9 @@ fn parse_statement<'a>(
             });
         }
     } else if *tokens.get(2).ok_or("Invalid statement")? == "=" {
-        let operation = *tokens.get(3).ok_or("Invalid statement")?;
+        let operation = second_token;
         let dest_address = stack.find_or_create_var_addr(first_token);
-        let source = *tokens.get(4).ok_or("Invalid statement")?;
+        let source = *tokens.get(3).ok_or("Invalid statement")?;
 
         if is_number(source) {
             let value = source.parse::<u8>().map_err(|x| x.to_string())?;
