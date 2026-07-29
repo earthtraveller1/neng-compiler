@@ -1,4 +1,3 @@
-use super::PullStatementTrait;
 use std::collections::HashMap;
 
 enum Statement {
@@ -84,26 +83,49 @@ impl<'a> Stack<'a> for Vec<Stackframe<'a>> {
     }
 }
 
-fn parse_code(tokens: &[&str]) -> Vec<Statement> {
-    let mut start_token = 0;
-    let mut variables = HashMap::new();
+fn pull_statement<'a>(tokens: &'a [&str]) -> Result<&'a [&'a str], &'static str> {
+    let mut open_braces = 0;
+    let mut closing_braces = 0;
+    let mut i = 0;
 
+    while tokens[i] != ";" || open_braces != closing_braces {
+        if i >= tokens.len() {
+            return Err("Statement unconcluded");
+        }
+
+        if tokens[i] == "{" {
+            open_braces += 1;
+        } else if tokens[i] == "}" {
+            closing_braces += 1;
+        }
+
+        i += 1;
+    }
+
+    Ok(&tokens[..i])
+}
+
+fn parse_code(
+    tokens: &[&str],
+    stack: &mut Vec<Stackframe>,
+) -> Result<Vec<Statement>, &'static str> {
+    let mut start_token = 0;
     let mut statements = Vec::new();
 
     loop {
-        let statement = &tokens[start_token..].pull_statement();
-        statements.push(parse_statement(statement, &mut variables));
-
         if start_token >= tokens.len() {
             break;
         }
 
+        let statement = pull_statement(&tokens[start_token..])?;
+        statements.push(parse_statement(statement, stack));
+
         start_token += statement.len() + 1;
     }
 
-    statements
+    Ok(statements)
 }
 
-fn parse_statement(tokens: &[&str], variables: &mut HashMap<&str, u64>) -> Statement {
+fn parse_statement(tokens: &[&str], stack: &mut Vec<Stackframe>) -> Statement {
     todo!()
 }

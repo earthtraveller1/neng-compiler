@@ -3,8 +3,8 @@ use std::env;
 #[cfg(test)]
 mod tests;
 
-mod basic_ast;
 mod assembler;
+mod basic_ast;
 mod codegen;
 
 struct CommandLineOptions {
@@ -55,7 +55,7 @@ fn tokenize_string(string: &str) -> Vec<&str> {
 
             // All alphanumberical characters are individual tokens
             if !c.is_whitespace() {
-                tokens.push(&string[i..i+1]);
+                tokens.push(&string[i..i + 1]);
             }
 
             // Move it forward to the next one
@@ -65,30 +65,6 @@ fn tokenize_string(string: &str) -> Vec<&str> {
     }
 
     tokens
-}
-
-trait PullStatementTrait {
-    fn pull_statement(self) -> Self;
-}
-
-impl PullStatementTrait for &[&str] {
-    fn pull_statement(self) -> Self {
-        let mut open_braces = 0;
-        let mut closing_braces = 0;
-        let mut i = 0;
-
-        while self[i] != ";" || open_braces != closing_braces {
-            if self[i] == "{" {
-                open_braces += 1;
-            } else if self[i] == "}" {
-                closing_braces += 1;
-            }
-            
-            i += 1;
-        }
-
-        &self[..i]
-    }
 }
 
 fn main() {
