@@ -67,6 +67,30 @@ fn tokenize_string(string: &str) -> Vec<&str> {
     tokens
 }
 
+trait PullStatementTrait {
+    fn pull_statement(self) -> Self;
+}
+
+impl PullStatementTrait for &[&str] {
+    fn pull_statement(self) -> Self {
+        let mut open_braces = 0;
+        let mut closing_braces = 0;
+        let mut i = 0;
+
+        while self[i] != ";" || open_braces != closing_braces {
+            if self[i] == "{" {
+                open_braces += 1;
+            } else if self[i] == "}" {
+                closing_braces += 1;
+            }
+            
+            i += 1;
+        }
+
+        &self[..i]
+    }
+}
+
 fn main() {
     let cli_options = CommandLineOptions::get();
     println!(
