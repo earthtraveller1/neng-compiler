@@ -89,4 +89,10 @@ fn main() {
 
     let tokens = tokenize_string(&source_file);
     println!("Tokens: {:?}", tokens);
+
+    let ast = basic_ast::parse_code(tokens.as_slice(), &mut basic_ast::Stack::new());
+    match ast {
+        Ok(ast) => println!("AST: {:?}", ast),
+        Err(error) => eprintln!("[ERROR]: {}", error)
+    };
 }
