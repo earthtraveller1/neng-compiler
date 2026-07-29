@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::ParseIntError};
 
 enum Statement {
     Assign {
@@ -105,10 +105,7 @@ fn pull_statement<'a>(tokens: &'a [&str]) -> Result<&'a [&'a str], &'static str>
     Ok(&tokens[..i])
 }
 
-fn parse_code(
-    tokens: &[&str],
-    stack: &mut Vec<Stackframe>,
-) -> Result<Vec<Statement>, &'static str> {
+fn parse_code<'a>(tokens: &'a [&'a str], stack: &mut Vec<Stackframe<'a>>) -> Result<Vec<Statement>, String> {
     let mut start_token = 0;
     let mut statements = Vec::new();
 
@@ -118,7 +115,7 @@ fn parse_code(
         }
 
         let statement = pull_statement(&tokens[start_token..])?;
-        statements.push(parse_statement(statement, stack));
+        statements.push(parse_statement(statement, stack)?);
 
         start_token += statement.len() + 1;
     }
@@ -126,6 +123,74 @@ fn parse_code(
     Ok(statements)
 }
 
-fn parse_statement(tokens: &[&str], stack: &mut Vec<Stackframe>) -> Statement {
-    todo!()
+fn is_number(string: &str) -> bool {
+    for c in string.chars() {
+        if !c.is_numeric() {
+            return false;
+        }
+    }
+    true
+}
+
+fn parse_statement<'a>(
+    tokens: &[&'a str],
+    stack: &mut Vec<Stackframe<'a>>,
+) -> Result<Statement, String> {
+    let first_token = *tokens.first().ok_or("Empty statements are not allowed.")?;
+    if first_token == "if" {
+        todo!();
+    } else if first_token == "whble" {
+        todo!();
+    }
+
+    let second_token = *tokens.get(1).ok_or("Invalid statement")?;
+
+    if second_token == "=" {
+        let source_operand = tokens.get(2).ok_or("Invalid statement")?;
+        let dest_address = stack.find_or_create_var_addr(first_token);
+
+        // If the value is a constant integer, it is a simple assign
+        // operation
+        if is_number(source_operand) {
+            return Ok(Statement::Assign {
+                addr: dest_address,
+                value: (*source_operand)
+                    .parse()
+                    .map_err(|x: ParseIntError| x.to_string())?,
+            });
+        }
+        // Copy from another variable
+        else {
+            let source_address = stack
+                .find_variable_addr(source_operand)
+                .ok_or("Non-existent variable")?;
+
+            return Ok(Statement::Copy {
+                src: source_address,
+                dst: dest_address,
+            });
+        }
+    } else if *tokens.get(2).ok_or("Invalid statement")? == "=" {
+        let operation = *tokens.get(3).ok_or("Invalid statement")?;
+        let dest_address = stack.find_or_create_var_addr(first_token);
+        let source = *tokens.get(4).ok_or("Invalid statement")?;
+
+        if is_number(source) {
+            let value = source.parse::<u8>().map_err(|x| x.to_string())?;
+
+            if operation == "+" {
+                return Ok(Statement::Add {
+                    addr: dest_address,
+                    value,
+                });
+            } else if operation == "-" {
+                return Ok(Statement::Subtract {
+                    addr: dest_address,
+                    value,
+                });
+            }
+        }
+    }
+
+    Err("Invalid statement".to_string())
 }
