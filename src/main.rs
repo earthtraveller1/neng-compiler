@@ -53,7 +53,7 @@ fn tokenize_string(string: &str) -> Vec<&str> {
                 tokens.push(current_token);
             }
 
-            // All alphanumberical characters are individual tokens
+            // All non-alphanumberical characters are individual tokens
             if !c.is_whitespace() {
                 tokens.push(&string[i..i + 1]);
             }
